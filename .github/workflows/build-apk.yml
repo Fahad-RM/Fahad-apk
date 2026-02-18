@@ -8,11 +8,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Go to project folder
-        run: ls -R
+      - uses: actions/checkout@v4
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -20,15 +16,11 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Build APK inside project folder
+      - name: Build Debug APK
         run: |
           cd FieldSalesAndroid
-          chmod +x gradlew || true
-          if [ -f gradlew ]; then
-            ./gradlew assembleDebug
-          else
-            gradle assembleDebug
-          fi
+          chmod +x gradlew
+          ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
