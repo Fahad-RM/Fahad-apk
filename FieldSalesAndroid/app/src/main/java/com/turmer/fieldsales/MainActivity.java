@@ -167,16 +167,23 @@ public class MainActivity extends AppCompatActivity {
         String odooUrl = prefs.getString(KEY_ODOO_URL, "");
 
         final WebView offscreenWV = new WebView(this);
-        int width = 576; // 80mm printer width
+        // HPRT MPT-III 80mm is exactly 576 dots wide. 
+        // We'll give it a slightly wider logical viewport (640) and scale it down to 576
+        // to naturally compress the text so it doesn't wrap awkwardly.
+        int logicalWidth = 640; 
+        int printWidth = 576; 
 
         // Cleanly inject CSS into the existing Odoo document <head>
+        // Use a slightly smaller font size (11px) and ensure width is fixed
         String style = "<style>" +
                 "@page { size: 80mm auto; margin: 0; }" +
-                "body { margin: 0 !important; padding: 0 4mm !important; width: 80mm !important; font-size: 12px !important; background: #FFF !important; color: black; font-family: sans-serif; }" +
+                "body { margin: 0 !important; padding: 0 10px !important; width: 620px !important; font-size: 11px !important; background: #FFF !important; color: black; font-family: sans-serif; }" +
                 ".o_main_navbar, .o_control_panel, header, footer { display: none !important; }" +
-                ".page { margin: 0 !important; border: none !important; }" +
+                ".page { margin: 0 !important; border: none !important; padding-top: 5px !important; }" +
                 "table { width: 100% !important; border-collapse: collapse; }" +
-                "img { max-width: 100% !important; height: auto !important; }" +
+                "td, th { padding: 4px 2px !important; }" +
+                "img { max-width: 100% !important; height: auto !important; object-fit: contain; }" +
+                ".text-right { text-align: right !important; }" +
                 "</style></head>";
         String styledHtml = html.replace("</head>", style);
 
@@ -185,7 +192,7 @@ public class MainActivity extends AppCompatActivity {
         offscreenWV.loadDataWithBaseURL(odooUrl, styledHtml, "text/html", "utf-8", null);
 
         // Attach to window so Android actually renders it (placed offscreen)
-        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(width, FrameLayout.LayoutParams.WRAP_CONTENT);
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(logicalWidth, FrameLayout.LayoutParams.WRAP_CONTENT);
         lp.leftMargin = -10000;
         offscreenWV.setLayoutParams(lp);
         ((android.view.ViewGroup) getWindow().getDecorView()).addView(offscreenWV);
@@ -197,28 +204,38 @@ public class MainActivity extends AppCompatActivity {
                 view.postDelayed(() -> {
                     try {
 
-                        // Force measure and layout for the bitmap
+                        // Force measure and layout for the bitmap using the LARGER logical width
                         view.measure(
-                                View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+                                View.MeasureSpec.makeMeasureSpec(logicalWidth, View.MeasureSpec.EXACTLY),
                                 View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
                         );
 
                         int height = view.getMeasuredHeight();
                         if (height <= 0) height = 1000;
 
-                        android.graphics.Bitmap bitmap =
+                        // Create a bitmap at the larger logical size
+                        android.graphics.Bitmap logicalBitmap =
                                 android.graphics.Bitmap.createBitmap(
-                                        width,
+                                        logicalWidth,
                                         height,
-                                        android.graphics.Bitmap.Config.RGB_565 // RGB_565 is better for ESC/POS
+                                        android.graphics.Bitmap.Config.RGB_565
                                 );
 
-                        // Provide a canvas with a white background in case of transparency
-                        android.graphics.Canvas canvas = new android.graphics.Canvas(bitmap);
+                        // Provide a canvas with a white background
+                        android.graphics.Canvas canvas = new android.graphics.Canvas(logicalBitmap);
                         canvas.drawColor(android.graphics.Color.WHITE);
 
-                        view.layout(0, 0, width, height);
+                        view.layout(0, 0, logicalWidth, height);
                         view.draw(canvas);
+
+                        // Scale the bitmap down to the exact physical printer width (576)
+                        // This acts as a "Zoom Out" ensuring everything fits on the paper
+                        int scaledHeight = (int) (height * ((float) printWidth / logicalWidth));
+                        android.graphics.Bitmap printBitmap =
+                                android.graphics.Bitmap.createScaledBitmap(logicalBitmap, printWidth, scaledHeight, true);
+
+                        // Recycle the large one to save memory
+                        logicalBitmap.recycle();
 
                         new Thread(() -> {
 
@@ -231,7 +248,7 @@ public class MainActivity extends AppCompatActivity {
                                                 "Printing...",
                                                 Toast.LENGTH_SHORT).show());
 
-                                printer.printBitmap(bitmap);
+                                printer.printBitmap(printBitmap);
                                 printer.close();
 
                                 runOnUiThread(() ->
