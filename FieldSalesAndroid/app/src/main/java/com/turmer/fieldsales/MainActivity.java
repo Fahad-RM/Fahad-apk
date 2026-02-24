@@ -163,6 +163,9 @@ public class MainActivity extends AppCompatActivity {
 
         Toast.makeText(this, "Preparing Print...", Toast.LENGTH_SHORT).show();
 
+        // Get the base Odoo URL to allow the WebView to fetch relative CSS and Images
+        String odooUrl = prefs.getString(KEY_ODOO_URL, "");
+
         final WebView offscreenWV = new WebView(this);
         int width = 576; // 80mm printer width
 
@@ -178,7 +181,8 @@ public class MainActivity extends AppCompatActivity {
         String styledHtml = html.replace("</head>", style);
 
         offscreenWV.getSettings().setJavaScriptEnabled(true);
-        offscreenWV.loadDataWithBaseURL(null, styledHtml, "text/html", "utf-8", null);
+        // CRITICAL: Pass odooUrl as the base URL so relative <link rel="stylesheet"> work
+        offscreenWV.loadDataWithBaseURL(odooUrl, styledHtml, "text/html", "utf-8", null);
 
         // Attach to window so Android actually renders it (placed offscreen)
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(width, FrameLayout.LayoutParams.WRAP_CONTENT);
