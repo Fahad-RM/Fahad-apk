@@ -173,17 +173,18 @@ public class MainActivity extends AppCompatActivity {
         int printWidth = 576; 
 
         // Cleanly inject CSS into the existing Odoo document <head>
-        // Let the content naturally fill 100% of the 576px envelope.
-        // Shrink font to 11px and reduce table padding to fit all data.
+        // Make fonts darker (font-weight 600), compress line-height, and reduce padding.
         String style = "<style>" +
                 "@page { size: 80mm auto; margin: 0; }" +
-                "body { margin: 0 !important; padding: 0 2mm !important; width: 100% !important; box-sizing: border-box !important; font-size: 11px !important; background: #FFF !important; color: black; font-family: sans-serif; }" +
+                "body { margin: 0 !important; padding: 0 2mm !important; width: 100% !important; box-sizing: border-box !important; font-size: 11px !important; line-height: 1.1 !important; font-weight: 600 !important; background: #FFF !important; color: #000 !important; font-family: sans-serif; }" +
+                "div, p, span { line-height: 1.1 !important; margin-bottom: 2px !important; }" +
                 ".o_main_navbar, .o_control_panel, header, footer { display: none !important; }" +
-                ".page { margin: 0 !important; border: none !important; padding-top: 5px !important; }" +
-                "table { width: 100% !important; border-collapse: collapse; table-layout: fixed; }" +
-                "td, th { padding: 2px 1px !important; word-wrap: break-word; }" +
-                "img { max-width: 100% !important; height: auto !important; object-fit: contain; }" +
+                ".page { margin: 0 !important; border: none !important; padding-top: 2px !important; }" +
+                "table { width: 100% !important; border-collapse: collapse; table-layout: fixed; margin-top: 2px !important; margin-bottom: 2px !important; }" +
+                "td, th { padding: 1px 1px !important; word-wrap: break-word; }" +
+                "img { max-width: 100% !important; height: auto !important; object-fit: contain; margin-bottom: 2px !important; }" +
                 ".text-right { text-align: right !important; }" +
+                "strong { font-weight: 900 !important; }" +
                 "</style></head>";
         String styledHtml = html.replace("</head>", style);
 
