@@ -168,16 +168,16 @@ public class MainActivity extends AppCompatActivity {
 
         final WebView offscreenWV = new WebView(this);
         // HPRT MPT-III 80mm is exactly 576 dots wide. 
-        // We'll give it a slightly wider logical viewport (640) and scale it down to 576
-        // to naturally compress the text so it doesn't wrap awkwardly.
-        int logicalWidth = 640; 
+        // User requested ~30% size reduction. We increase the logical viewport significantly.
+        // Rendering at 800px and scaling down to 576px shrinks everything by ~28%.
+        int logicalWidth = 800; 
         int printWidth = 576; 
 
         // Cleanly inject CSS into the existing Odoo document <head>
-        // Use a slightly smaller font size (11px) and ensure width is fixed
+        // Adjust CSS to match the new 800px logical width envelope
         String style = "<style>" +
                 "@page { size: 80mm auto; margin: 0; }" +
-                "body { margin: 0 !important; padding: 0 10px !important; width: 620px !important; font-size: 11px !important; background: #FFF !important; color: black; font-family: sans-serif; }" +
+                "body { margin: 0 !important; padding: 0 10px !important; width: 780px !important; font-size: 16px !important; background: #FFF !important; color: black; font-family: sans-serif; }" +
                 ".o_main_navbar, .o_control_panel, header, footer { display: none !important; }" +
                 ".page { margin: 0 !important; border: none !important; padding-top: 5px !important; }" +
                 "table { width: 100% !important; border-collapse: collapse; }" +
