@@ -167,21 +167,21 @@ public class MainActivity extends AppCompatActivity {
         String odooUrl = prefs.getString(KEY_ODOO_URL, "");
 
         final WebView offscreenWV = new WebView(this);
-        // HPRT MPT-III 80mm is exactly 576 dots wide. 
-        // User requested ~30% size reduction. We increase the logical viewport significantly.
-        // Rendering at 800px and scaling down to 576px shrinks everything by ~28%.
-        int logicalWidth = 800; 
+        // HPRT MPT-III 80mm (3 inch) is exactly 576 dots wide. 
+        // Rendering at exactly 576px prevents scaling distortion and blurriness.
+        int logicalWidth = 576; 
         int printWidth = 576; 
 
         // Cleanly inject CSS into the existing Odoo document <head>
-        // Adjust CSS to match the new 800px logical width envelope
+        // Let the content naturally fill 100% of the 576px envelope.
+        // Shrink font to 11px and reduce table padding to fit all data.
         String style = "<style>" +
                 "@page { size: 80mm auto; margin: 0; }" +
-                "body { margin: 0 !important; padding: 0 10px !important; width: 780px !important; font-size: 16px !important; background: #FFF !important; color: black; font-family: sans-serif; }" +
+                "body { margin: 0 !important; padding: 0 2mm !important; width: 100% !important; box-sizing: border-box !important; font-size: 11px !important; background: #FFF !important; color: black; font-family: sans-serif; }" +
                 ".o_main_navbar, .o_control_panel, header, footer { display: none !important; }" +
                 ".page { margin: 0 !important; border: none !important; padding-top: 5px !important; }" +
-                "table { width: 100% !important; border-collapse: collapse; }" +
-                "td, th { padding: 4px 2px !important; }" +
+                "table { width: 100% !important; border-collapse: collapse; table-layout: fixed; }" +
+                "td, th { padding: 2px 1px !important; word-wrap: break-word; }" +
                 "img { max-width: 100% !important; height: auto !important; object-fit: contain; }" +
                 ".text-right { text-align: right !important; }" +
                 "</style></head>";
