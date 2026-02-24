@@ -123,24 +123,21 @@ public class LoginActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         scroll.addView(col);
 
-        // ── Logo ──
+        // ── Logo —— App Icon ──
         FrameLayout logoCircle = new FrameLayout(this);
         LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(dp(100), dp(100));
         llp.gravity = Gravity.CENTER_HORIZONTAL;
         llp.bottomMargin = dp(24);
         logoCircle.setLayoutParams(llp);
-        GradientDrawable circle = new GradientDrawable();
-        circle.setShape(GradientDrawable.OVAL);
-        circle.setColor(0xFF667EEA);
-        circle.setStroke(dp(3), 0x44FFFFFF);
-        logoCircle.setBackground(circle);
-        TextView logoTv = new TextView(this);
-        logoTv.setText("🚀");
-        logoTv.setTextSize(40);
-        logoTv.setGravity(Gravity.CENTER);
-        logoTv.setLayoutParams(new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        logoCircle.addView(logoTv);
+
+        // Use real mipmap launcher icon
+        android.widget.ImageView logoImg = new android.widget.ImageView(this);
+        logoImg.setImageResource(R.mipmap.ic_launcher);
+        logoImg.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
+        logoImg.setLayoutParams(new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+        logoCircle.addView(logoImg);
         col.addView(logoCircle);
 
         col.addView(centeredText("Field Sales",       30, Color.WHITE,  true,  dp(6)));
