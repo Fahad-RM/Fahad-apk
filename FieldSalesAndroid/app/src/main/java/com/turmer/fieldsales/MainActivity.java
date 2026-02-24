@@ -264,7 +264,7 @@ public class MainActivity extends AppCompatActivity {
                                                 Toast.LENGTH_LONG).show());
                             }
 
-                            bitmap.recycle();
+                            printBitmap.recycle();
 
                         }).start();
 
