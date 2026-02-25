@@ -294,9 +294,7 @@ public class MainActivity extends AppCompatActivity {
 
                         // Use the largest of measured height, scroll range, or a safe minimum
                         // Add 200px buffer so Thank you / disclaimer / cutter space is never clipped
-                        int measuredH = view.getMeasuredHeight();
-                        int scrollH   = view.computeVerticalScrollRange();
-                        int height    = Math.max(measuredH, scrollH) + 200;
+                        int height = view.getMeasuredHeight() + 200;
                         if (height <= 200) height = 1200;
 
                         android.graphics.Bitmap logicalBitmap =
