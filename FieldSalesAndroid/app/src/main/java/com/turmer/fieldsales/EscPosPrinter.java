@@ -4,168 +4,220 @@ import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
-import android.content.Context;                 // ✅ ADDED
-import android.content.SharedPreferences;       // ✅ ADDED
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.util.Log;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.lang.reflect.Method;
 import java.util.Set;
 import java.util.UUID;
 
 public class EscPosPrinter {
 
     private static final String TAG = "EscPosPrinter";
+    // Standard SPP (Serial Port Profile) UUID — works for ALL ESC/POS Bluetooth printers
     private static final UUID SPP_UUID =
             UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
 
-    private BluetoothAdapter bluetoothAdapter;
+    private final BluetoothAdapter bluetoothAdapter;
     private BluetoothSocket socket;
     private OutputStream outputStream;
-    private Context context;
+    private final Context context;
 
     public EscPosPrinter(Context context) {
         this.context = context;
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
     }
 
+    // ──────────────────────────────────────────────────────────────────────────
+    // CONNECT — works with ANY paired Bluetooth ESC/POS printer (3-inch or 4-inch)
+    // ──────────────────────────────────────────────────────────────────────────
+
     @SuppressLint("MissingPermission")
     public boolean connect() {
 
         if (bluetoothAdapter == null) {
-            Log.e(TAG, "Bluetooth not supported");
+            Log.e(TAG, "Bluetooth not supported on this device");
             return false;
         }
 
         if (!bluetoothAdapter.isEnabled()) {
-            Log.e(TAG, "Bluetooth is OFF");
+            Log.e(TAG, "Bluetooth is disabled");
             return false;
         }
 
-        try {
+        SharedPreferences prefs =
+                context.getSharedPreferences("FieldSalesPrefs", Context.MODE_PRIVATE);
+        String savedMac = prefs.getString("selected_printer_mac", "");
 
-            SharedPreferences prefs =
-                    context.getSharedPreferences("FieldSalesPrefs", Context.MODE_PRIVATE);
+        BluetoothDevice device = null;
 
-            String savedMac = prefs.getString("selected_printer_mac", "");
-
-            BluetoothDevice device = null;
-
-            if (!savedMac.isEmpty()) {
+        if (!savedMac.isEmpty()) {
+            // Use saved printer MAC — direct connection
+            try {
                 device = bluetoothAdapter.getRemoteDevice(savedMac);
-                Log.d(TAG, "Connecting to saved printer: " + savedMac);
-            } else {
-
-                Set<BluetoothDevice> pairedDevices =
-                        bluetoothAdapter.getBondedDevices();
-
-                if (pairedDevices == null || pairedDevices.isEmpty()) {
-                    Log.e(TAG, "No paired devices found");
-                    return false;
-                }
-
-                for (BluetoothDevice d : pairedDevices) {
-                    String name = d.getName();
-                    if (name != null && name.toUpperCase().contains("MPT")) {
-                        device = d;
-                        break;
-                    }
-                }
-
-                if (device == null) {
-                    device = pairedDevices.iterator().next();
-                }
+                Log.d(TAG, "Using saved printer MAC: " + savedMac);
+            } catch (Exception e) {
+                Log.w(TAG, "Saved MAC invalid, falling back to first paired device");
+                device = null;
             }
+        }
 
+        // If no saved MAC or invalid, try the first available paired device
+        if (device == null) {
+            Set<BluetoothDevice> pairedDevices = bluetoothAdapter.getBondedDevices();
+            if (pairedDevices == null || pairedDevices.isEmpty()) {
+                Log.e(TAG, "No paired Bluetooth devices found");
+                return false;
+            }
+            // Pick the first paired device — no name filter (works for any brand)
+            device = pairedDevices.iterator().next();
+            Log.d(TAG, "No saved MAC — using first paired device: " + device.getName());
+        }
+
+        return connectToDevice(device);
+    }
+
+    @SuppressLint("MissingPermission")
+    private boolean connectToDevice(BluetoothDevice device) {
+        // Cancel discovery to avoid slowing down connection
+        bluetoothAdapter.cancelDiscovery();
+
+        // ── Attempt 1: Normal RFCOMM via SPP UUID ──
+        try {
             socket = device.createRfcommSocketToServiceRecord(SPP_UUID);
             socket.connect();
             outputStream = socket.getOutputStream();
-
-            Log.d(TAG, "Printer connected successfully");
+            Log.d(TAG, "Connected via standard RFCOMM to: " + device.getName());
             return true;
-
         } catch (Exception e) {
-            Log.e(TAG, "Printer connection failed", e);
-            close();
+            Log.w(TAG, "Standard RFCOMM failed (" + e.getMessage() + "). Trying secure fallback...");
+            closeSocket();
+        }
+
+        // ── Attempt 2: createInsecureRfcommSocketToServiceRecord (some printers need this) ──
+        try {
+            socket = device.createInsecureRfcommSocketToServiceRecord(SPP_UUID);
+            socket.connect();
+            outputStream = socket.getOutputStream();
+            Log.d(TAG, "Connected via insecure RFCOMM to: " + device.getName());
+            return true;
+        } catch (Exception e) {
+            Log.w(TAG, "Insecure RFCOMM failed (" + e.getMessage() + "). Trying reflection fallback...");
+            closeSocket();
+        }
+
+        // ── Attempt 3: Reflection-based socket (fixes channel-mismatch on older printers) ──
+        try {
+            Method m = device.getClass().getMethod("createRfcommSocket", int.class);
+            socket = (BluetoothSocket) m.invoke(device, 1); // channel 1
+            socket.connect();
+            outputStream = socket.getOutputStream();
+            Log.d(TAG, "Connected via reflection channel-1 to: " + device.getName());
+            return true;
+        } catch (Exception e) {
+            Log.e(TAG, "All connection attempts failed: " + e.getMessage());
+            closeSocket();
             return false;
         }
     }
+
+    private void closeSocket() {
+        try {
+            if (socket != null) socket.close();
+        } catch (Exception ignored) {}
+        socket = null;
+        outputStream = null;
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // PRINT BITMAP — universal ESC/POS raster bitmap command (GS v 0)
+    // Works on HPRT, Epson, Star, Bixolon, Rongta, Xprinter, and generic printers
+    // ──────────────────────────────────────────────────────────────────────────
 
     public void printBitmap(Bitmap bitmap) {
 
         if (outputStream == null) {
-            Log.e(TAG, "OutputStream is null");
+            Log.e(TAG, "Not connected — outputStream is null");
             return;
         }
 
         try {
-
-            // Initialize printer
+            // ESC @ — Initialize printer (reset settings)
             outputStream.write(new byte[]{0x1B, 0x40});
 
-            byte[] command = decodeBitmap(bitmap);
-            outputStream.write(command);
+            // ESC a 1 — Center alignment
+            outputStream.write(new byte[]{0x1B, 0x61, 0x00}); // left-align for receipts
 
-            // Feed & Cut
+            // Write raster bitmap data using GS v 0 command
+            byte[] bitmapData = encodeBitmapToRaster(bitmap);
+            outputStream.write(bitmapData);
+
+            // Feed 4 lines then full cut (GS V B 0)
             outputStream.write(new byte[]{
-                    0x0A, 0x0A, 0x0A, 0x0A,
-                    0x1D, 0x56, 0x42, 0x00
+                    0x0A, 0x0A, 0x0A, 0x0A,   // 4× line feed
+                    0x1D, 0x56, 0x42, 0x00     // Full cut
             });
 
             outputStream.flush();
+            Log.d(TAG, "Print job sent successfully");
 
         } catch (IOException e) {
-            Log.e(TAG, "Print failed", e);
+            Log.e(TAG, "Failed to send print data", e);
         }
     }
 
-    private byte[] decodeBitmap(Bitmap bitmap) {
+    // ──────────────────────────────────────────────────────────────────────────
+    // ESC/POS Raster Bitmap Encoder
+    // GS v 0 m xL xH yL yH d1…dk
+    //   m = 0 (normal density), xL/xH = bytes per row, yL/yH = rows
+    // ──────────────────────────────────────────────────────────────────────────
 
-        int width = bitmap.getWidth();
+    private byte[] encodeBitmapToRaster(Bitmap bitmap) {
+
+        int width  = bitmap.getWidth();
         int height = bitmap.getHeight();
-        int bw = (width + 7) / 8;
 
-        byte[] data = new byte[8 + bw * height];
+        // bytes per raster row (round up to byte boundary)
+        int bytesPerRow = (width + 7) / 8;
 
-        data[0] = 0x1D;
-        data[1] = 0x76;
-        data[2] = 0x30;
-        data[3] = 0x00;
-        data[4] = (byte) (bw & 0xFF);
-        data[5] = (byte) ((bw >> 8) & 0xFF);
-        data[6] = (byte) (height & 0xFF);
-        data[7] = (byte) ((height >> 8) & 0xFF);
+        // Header: GS v 0 + 6 bytes header + pixel data
+        int dataLen = 8 + bytesPerRow * height;
+        byte[] data = new byte[dataLen];
 
+        // GS v 0 command header
+        data[0] = 0x1D;                          // GS
+        data[1] = 0x76;                          // v
+        data[2] = 0x30;                          // 0
+        data[3] = 0x00;                          // m = normal
+        data[4] = (byte) (bytesPerRow & 0xFF);   // xL
+        data[5] = (byte) (bytesPerRow >> 8);     // xH
+        data[6] = (byte) (height & 0xFF);        // yL
+        data[7] = (byte) (height >> 8);          // yH
+
+        // Pixel data: each bit = 1 if pixel is dark (<128 luminance)
         int k = 8;
-
         for (int y = 0; y < height; y++) {
-
-            for (int xByte = 0; xByte < bw; xByte++) {
-
+            for (int xByte = 0; xByte < bytesPerRow; xByte++) {
                 int b = 0;
-
                 for (int bit = 0; bit < 8; bit++) {
-
                     int x = xByte * 8 + bit;
-
                     if (x < width) {
-
                         int pixel = bitmap.getPixel(x, y);
-
                         int r = Color.red(pixel);
                         int g = Color.green(pixel);
                         int bl = Color.blue(pixel);
-
-                        int gray = (r + g + bl) / 3;
-
+                        // Luminance: dark pixel → print dot
+                        int gray = (77 * r + 150 * g + 29 * bl) >> 8; // perceptual weighting
                         if (gray < 128) {
                             b |= (1 << (7 - bit));
                         }
                     }
                 }
-
                 data[k++] = (byte) b;
             }
         }
@@ -173,15 +225,17 @@ public class EscPosPrinter {
         return data;
     }
 
-    public void close() {
+    // ──────────────────────────────────────────────────────────────────────────
+    // CLOSE
+    // ──────────────────────────────────────────────────────────────────────────
 
+    public void close() {
         try {
             if (outputStream != null) outputStream.close();
+        } catch (IOException ignored) {}
+        try {
             if (socket != null) socket.close();
-        } catch (IOException e) {
-            Log.e(TAG, "Close failed", e);
-        }
-
+        } catch (IOException ignored) {}
         outputStream = null;
         socket = null;
     }

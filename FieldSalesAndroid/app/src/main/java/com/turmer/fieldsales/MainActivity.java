@@ -89,9 +89,6 @@ public class MainActivity extends AppCompatActivity {
 
         root.addView(webLayer);
 
-        // ── Premium FAB (Print Settings button – bottom right) ──
-        root.addView(buildPrintFab(), buildFabLayoutParams());
-
         setContentView(root);
 
         printer = new EscPosPrinter(this);
@@ -125,96 +122,6 @@ public class MainActivity extends AppCompatActivity {
 
         // Check Bluetooth connection status after short delay (permissions may be pending)
         webView.postDelayed(this::checkBluetoothPrinterStatus, 2500);
-    }
-
-    // ──────────────────────────────────────────────────────────────────────────
-    // PREMIUM FAB – floating printer settings button
-    // ──────────────────────────────────────────────────────────────────────────
-
-    private View buildPrintFab() {
-        FrameLayout fab = new FrameLayout(this);
-        fab.setId(View.generateViewId());
-
-        GradientDrawable fabBg = new GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{0xFFCC0000, 0xFF8B0000});
-        fabBg.setShape(GradientDrawable.OVAL);
-        fabBg.setStroke(dp(2), 0x33FFFFFF);
-        fab.setBackground(fabBg);
-
-        // Elevation-like shadow (simple approach via StateListAnimator not needed – use padding trick)
-        fab.setElevation(dp(8));
-        fab.setAlpha(0.92f);
-
-        TextView icon = new TextView(this);
-        icon.setText("🖨");
-        icon.setTextSize(20);
-        icon.setGravity(Gravity.CENTER);
-        icon.setLayoutParams(new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT));
-        fab.addView(icon);
-
-        fab.setOnClickListener(v -> showPrintSettingsDialog());
-
-        return fab;
-    }
-
-    private FrameLayout.LayoutParams buildFabLayoutParams() {
-        int size = dp(56);
-        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(size, size);
-        lp.gravity = Gravity.BOTTOM | Gravity.END;
-        lp.setMargins(0, 0, dp(16), dp(90));
-        return lp;
-    }
-
-    private void showPrintSettingsDialog() {
-        String savedMac = prefs.getString(KEY_PRINTER_MAC, null);
-        int savedWidth = prefs.getInt(KEY_PRINTER_WIDTH, 80);
-        String printerLabel = (savedMac != null) ? "🖨 " + savedMac : "No printer paired";
-
-        String[] options = {
-                "📡  Connect / Change Printer",
-                "📏  Paper Width: " + savedWidth + "mm (" + (savedWidth == 80 ? "3-inch" : "4-inch") + ")",
-                "ℹ️  Status: " + printerLabel
-        };
-
-        new AlertDialog.Builder(this)
-                .setTitle("Print Settings")
-                .setItems(options, (dialog, which) -> {
-                    switch (which) {
-                        case 0:
-                            showBluetoothDevicePicker();
-                            break;
-                        case 1:
-                            showPaperWidthDialog(savedMac);
-                            break;
-                        case 2:
-                            // Info only – do nothing
-                            break;
-                    }
-                })
-                .setNegativeButton("Close", null)
-                .show();
-    }
-
-    private void showPaperWidthDialog(String mac) {
-        String[] sizes = {"🗒  3-inch (80mm) — Standard Thermal", "📄  4-inch (104mm) — Wide Thermal"};
-        int currentWidth = prefs.getInt(KEY_PRINTER_WIDTH, 80);
-        int checkedItem = (currentWidth == 104) ? 1 : 0;
-
-        new AlertDialog.Builder(this)
-                .setTitle("Select Paper Width")
-                .setSingleChoiceItems(sizes, checkedItem, (dialog, which) -> {
-                    int newMm = (which == 1) ? 104 : 80;
-                    prefs.edit().putInt(KEY_PRINTER_WIDTH, newMm).apply();
-                    dialog.dismiss();
-                    Toast.makeText(this,
-                            "Paper width set to " + newMm + "mm",
-                            Toast.LENGTH_SHORT).show();
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
     }
 
     // ──────────────────────────────────────────────────────────────────────────
