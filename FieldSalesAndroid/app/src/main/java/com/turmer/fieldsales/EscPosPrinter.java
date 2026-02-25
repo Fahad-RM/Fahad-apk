@@ -147,24 +147,39 @@ public class EscPosPrinter {
         }
 
         try {
-            // ESC @ — Initialize printer (reset settings)
+            // ESC @ — Initialize printer
             outputStream.write(new byte[]{0x1B, 0x40});
-
-            // ESC a 1 — Center alignment
-            outputStream.write(new byte[]{0x1B, 0x61, 0x00}); // left-align for receipts
-
-            // Write raster bitmap data using GS v 0 command
-            byte[] bitmapData = encodeBitmapToRaster(bitmap);
-            outputStream.write(bitmapData);
-
-            // Feed 3 lines then full cut (GS V B 0)
-            outputStream.write(new byte[]{
-                    0x0A, 0x0A, 0x0A,          // 3× line feed (~3 char lines for cutter clearance)
-                    0x1D, 0x56, 0x42, 0x00     // Full cut
-            });
-
             outputStream.flush();
-            Log.d(TAG, "Print job sent successfully");
+
+            // ESC a 0 — Left align
+            outputStream.write(new byte[]{0x1B, 0x61, 0x00});
+            outputStream.flush();
+
+            // Encode bitmap to ESC/POS raster format
+            byte[] bitmapData = encodeBitmapToRaster(bitmap);
+
+            // ── CHUNKED WRITE — critical for BT printers with small buffers ──
+            // Sending the full bitmap at once (~50–200 KB) overflows the printer's
+            // internal buffer (typically 4–8 KB), causing it to stall mid-print.
+            // Writing in 512-byte chunks with a short flush delay prevents this.
+            final int CHUNK_SIZE = 512;
+            int offset = 0;
+            while (offset < bitmapData.length) {
+                int end = Math.min(offset + CHUNK_SIZE, bitmapData.length);
+                outputStream.write(bitmapData, offset, end - offset);
+                outputStream.flush();
+                offset = end;
+                try { Thread.sleep(5); } catch (InterruptedException ignored) {}
+            }
+
+            // Feed 3 lines then full cut — ~3 character lines of clearance for cutter
+            outputStream.write(new byte[]{
+                    0x0A, 0x0A, 0x0A,          // 3× line feed
+                    0x1D, 0x56, 0x42, 0x00      // Full cut
+            });
+            outputStream.flush();
+
+            Log.d(TAG, "Print job sent successfully (" + bitmapData.length + " bytes)");
 
         } catch (IOException e) {
             Log.e(TAG, "Failed to send print data", e);
