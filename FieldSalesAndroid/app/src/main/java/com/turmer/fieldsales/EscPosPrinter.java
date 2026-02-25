@@ -157,10 +157,9 @@ public class EscPosPrinter {
             byte[] bitmapData = encodeBitmapToRaster(bitmap);
             outputStream.write(bitmapData);
 
-            // Feed 8 lines then full cut (GS V B 0)
+            // Feed 3 lines then full cut (GS V B 0)
             outputStream.write(new byte[]{
-                    0x0A, 0x0A, 0x0A, 0x0A,   // 4× line feed
-                    0x0A, 0x0A, 0x0A, 0x0A,   // 4× more line feed (total 8 — enough to clear the cutter)
+                    0x0A, 0x0A, 0x0A,          // 3× line feed (~3 char lines for cutter clearance)
                     0x1D, 0x56, 0x42, 0x00     // Full cut
             });
 
