@@ -297,11 +297,11 @@ public class MainActivity extends AppCompatActivity {
         int fLogicalWidth = logicalWidth;
         int fPrintWidth   = printWidth;
 
-        // ── CRITICAL: Use a large fixed height (not WRAP_CONTENT) ──
-        // WRAP_CONTENT causes the offscreen WebView to stop rendering content
-        // beyond the screen height, cutting off totals, QR codes, and disclaimers.
-        // A 10000px fixed height tells Android to render the FULL document.
-        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(fLogicalWidth, 10000);
+        // Attach off-screen so Android renders it
+        // We MUST use WRAP_CONTENT. If we force a 10000px height, the WebView will
+        // literally become 10000px tall and print meters of blank paper at the end.
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(fLogicalWidth,
+                FrameLayout.LayoutParams.WRAP_CONTENT);
         lp.leftMargin = -20000; // Push far off-screen so it's never visible
         offscreenWV.setLayoutParams(lp);
         ((ViewGroup) getWindow().getDecorView()).addView(offscreenWV);
@@ -311,9 +311,20 @@ public class MainActivity extends AppCompatActivity {
             public void onPageFinished(WebView view, String url) {
                 view.postDelayed(() -> {
                     try {
-                        // getContentHeight() = WebKit's exact document height (not the 10000px layout height)
-                        // Adding 200px for the cutter clearance space only
-                        int height = view.getContentHeight() + 200;
+                        // ── HEIGHT: double-measure layout for true rendered height ──
+                        // A WRAP_CONTENT WebView might defer layout. Measuring twice forces
+                        // it to calculate the exact height of the rendered HTML content.
+                        view.measure(
+                                View.MeasureSpec.makeMeasureSpec(fLogicalWidth, View.MeasureSpec.EXACTLY),
+                                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+                        );
+                        view.measure(
+                                View.MeasureSpec.makeMeasureSpec(fLogicalWidth, View.MeasureSpec.EXACTLY),
+                                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+                        );
+
+                        // Use exactly the layout height plus a small 200px gap for the cutter
+                        int height = view.getMeasuredHeight() + 200;
                         if (height < 600) height = 1500; // sanity minimum
 
                         android.graphics.Bitmap logicalBitmap =
