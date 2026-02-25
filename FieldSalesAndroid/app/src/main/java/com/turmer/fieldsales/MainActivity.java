@@ -222,6 +222,33 @@ public class MainActivity extends AppCompatActivity {
                 progressBar.setVisibility(newProgress < 100 ? View.VISIBLE : View.GONE);
                 progressBar.setProgress(newProgress);
             }
+
+            // ── CRITICAL: without this override, Android silently blocks ALL
+            // JS geolocation requests inside WebView, even with the permission granted.
+            // This grants location access to the Odoo page so check-in / check-out works.
+            @Override
+            public void onGeolocationPermissionsShowPrompt(
+                    String origin,
+                    android.webkit.GeolocationPermissions.Callback callback) {
+
+                // Check that we actually have the system permission before granting
+                boolean granted = ContextCompat.checkSelfPermission(
+                        MainActivity.this, Manifest.permission.ACCESS_FINE_LOCATION)
+                        == PackageManager.PERMISSION_GRANTED;
+
+                callback.invoke(origin, granted, false); // retain=false (don't persist across sessions)
+
+                if (!granted) {
+                    // Request the permission if we don't have it yet
+                    ActivityCompat.requestPermissions(
+                            MainActivity.this,
+                            new String[]{
+                                    Manifest.permission.ACCESS_FINE_LOCATION,
+                                    Manifest.permission.ACCESS_COARSE_LOCATION
+                            },
+                            LOCATION_PERMISSION_REQUEST_CODE);
+                }
+            }
         });
     }
 
