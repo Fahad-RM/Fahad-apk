@@ -387,7 +387,26 @@ public class MainActivity extends AppCompatActivity {
                     String mac = macs.get(which);
                     prefs.edit().putString(KEY_PRINTER_MAC, mac).apply();
                     // After selecting device, ask for paper width
-                    showPaperWidthDialog(mac);
+                    showPaperWidthDialog();
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void showPaperWidthDialog() {
+        String[] sizes = {"🗒  3-inch (80mm) — Standard Thermal", "📄  4-inch (104mm) — Wide Thermal"};
+        int currentWidth = prefs.getInt(KEY_PRINTER_WIDTH, 80);
+        int checkedItem = (currentWidth == 104) ? 1 : 0;
+
+        new AlertDialog.Builder(this)
+                .setTitle("Select Paper Width")
+                .setSingleChoiceItems(sizes, checkedItem, (dialog, which) -> {
+                    int newMm = (which == 1) ? 104 : 80;
+                    prefs.edit().putInt(KEY_PRINTER_WIDTH, newMm).apply();
+                    dialog.dismiss();
+                    Toast.makeText(this,
+                            "Paper width set to " + newMm + "mm",
+                            Toast.LENGTH_SHORT).show();
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
