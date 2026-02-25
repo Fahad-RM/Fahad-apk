@@ -309,20 +309,23 @@ public class MainActivity extends AppCompatActivity {
             public void onPageFinished(WebView view, String url) {
                 view.postDelayed(() -> {
                     try {
-                        // Measure height — do it twice to catch deferred layout (e.g. images)
+                        // ── HEIGHT CALCULATION — critical for complete print ──
+                        // getMeasuredHeight() only measures the Android View layout,
+                        // which for offscreen WebViews is often LESS than the actual
+                        // HTML content height (causing totals/QR/disclaimer to be cut off).
+                        //
+                        // getContentHeight() returns the true HTML document height in
+                        // CSS pixels as reported by the WebKit engine — always accurate.
+                        //
+                        // We take the maximum of both and add a 400px safety buffer.
                         view.measure(
                                 View.MeasureSpec.makeMeasureSpec(fLogicalWidth, View.MeasureSpec.EXACTLY),
                                 View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
                         );
-                        view.measure(
-                                View.MeasureSpec.makeMeasureSpec(fLogicalWidth, View.MeasureSpec.EXACTLY),
-                                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
-                        );
-
-                        // Use the largest of measured height, scroll range, or a safe minimum
-                        // Add 200px buffer so Thank you / disclaimer / cutter space is never clipped
-                        int height = view.getMeasuredHeight() + 200;
-                        if (height <= 200) height = 1200;
+                        int measuredH = view.getMeasuredHeight();
+                        int contentH  = view.getContentHeight(); // true WebKit HTML height (CSS px)
+                        int height    = Math.max(measuredH, contentH) + 400; // 400px = safe buffer for footer content
+                        if (height < 600) height = 2000; // sanity minimum
 
                         android.graphics.Bitmap logicalBitmap =
                                 android.graphics.Bitmap.createBitmap(
