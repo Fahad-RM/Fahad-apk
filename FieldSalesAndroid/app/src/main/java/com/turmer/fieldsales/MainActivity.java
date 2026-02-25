@@ -297,11 +297,11 @@ public class MainActivity extends AppCompatActivity {
         int fLogicalWidth = logicalWidth;
         int fPrintWidth   = printWidth;
 
-        // Attach off-screen so Android renders it
-        // We MUST use WRAP_CONTENT. If we force a 10000px height, the WebView will
-        // literally become 10000px tall and print meters of blank paper at the end.
-        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(fLogicalWidth,
-                FrameLayout.LayoutParams.WRAP_CONTENT);
+        // ── CRITICAL: Use a large fixed height (not WRAP_CONTENT) ──
+        // WRAP_CONTENT causes the offscreen WebView to stop rendering content
+        // beyond the screen height, cutting off totals, QR codes, and disclaimers.
+        // A 10000px fixed height tells Android to render the FULL document.
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(fLogicalWidth, 10000);
         lp.leftMargin = -20000; // Push far off-screen so it's never visible
         offscreenWV.setLayoutParams(lp);
         ((ViewGroup) getWindow().getDecorView()).addView(offscreenWV);
@@ -311,38 +311,53 @@ public class MainActivity extends AppCompatActivity {
             public void onPageFinished(WebView view, String url) {
                 view.postDelayed(() -> {
                     try {
-                        // ── HEIGHT: double-measure layout for true rendered height ──
-                        // A WRAP_CONTENT WebView might defer layout. Measuring twice forces
-                        // it to calculate the exact height of the rendered HTML content.
-                        view.measure(
-                                View.MeasureSpec.makeMeasureSpec(fLogicalWidth, View.MeasureSpec.EXACTLY),
-                                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
-                        );
-                        view.measure(
-                                View.MeasureSpec.makeMeasureSpec(fLogicalWidth, View.MeasureSpec.EXACTLY),
-                                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
-                        );
-
-                        // Use exactly the layout height plus a small 200px gap for the cutter
-                        int height = view.getMeasuredHeight() + 200;
-                        if (height < 600) height = 1500; // sanity minimum
+                        // 1. Capture the full 10000px layout
+                        int height = 10000;
 
                         android.graphics.Bitmap logicalBitmap =
                                 android.graphics.Bitmap.createBitmap(
                                         fLogicalWidth, height,
                                         android.graphics.Bitmap.Config.RGB_565);
 
+                        // 2. Draw the WebView into our full 10000px bitmap
                         android.graphics.Canvas canvas = new android.graphics.Canvas(logicalBitmap);
                         canvas.drawColor(android.graphics.Color.WHITE);
-
                         view.layout(0, 0, fLogicalWidth, height);
                         view.draw(canvas);
 
-                        int scaledHeight = (int) (height * ((float) fPrintWidth / fLogicalWidth));
+                        // 3. Scan from bottom up to find the true content height (crop empty white space)
+                        int actualContentHeight = 0;
+                        int[] pixels = new int[fLogicalWidth];
+                        for (int y = height - 1; y >= 0; y--) {
+                            logicalBitmap.getPixels(pixels, 0, fLogicalWidth, 0, y, fLogicalWidth, 1);
+                            boolean hasContent = false;
+                            for (int x = 0; x < fLogicalWidth; x++) {
+                                // In RGB_565, pure white is -1 (0xFFFFFFFF)
+                                if (pixels[x] != android.graphics.Color.WHITE) {
+                                    hasContent = true;
+                                    break;
+                                }
+                            }
+                            if (hasContent) {
+                                // Add 200px buffer for the cutter below the last black pixel
+                                actualContentHeight = Math.min(height, y + 200);
+                                break;
+                            }
+                        }
+
+                        if (actualContentHeight < 600) actualContentHeight = 1500; // sanity minimum
+
+                        // 4. Crop the bitmap to the actual content height
+                        android.graphics.Bitmap croppedBitmap = android.graphics.Bitmap.createBitmap(
+                                logicalBitmap, 0, 0, fLogicalWidth, actualContentHeight);
+                        logicalBitmap.recycle(); // free the 10000px giant
+
+                        // 5. Scale down to printer width
+                        int scaledHeight = (int) (actualContentHeight * ((float) fPrintWidth / fLogicalWidth));
                         android.graphics.Bitmap printBitmap =
                                 android.graphics.Bitmap.createScaledBitmap(
-                                        logicalBitmap, fPrintWidth, scaledHeight, true);
-                        logicalBitmap.recycle();
+                                        croppedBitmap, fPrintWidth, scaledHeight, true);
+                        croppedBitmap.recycle();
 
                         new Thread(() -> {
                             boolean connected = printer.connect();
