@@ -311,16 +311,10 @@ public class MainActivity extends AppCompatActivity {
             public void onPageFinished(WebView view, String url) {
                 view.postDelayed(() -> {
                     try {
-                        // ── HEIGHT: use getContentHeight() — WebKit's true document height ──
-                        // WRAP_CONTENT was cutting off content; now WebView is 10000px tall
-                        // getContentHeight() returns the exact rendered content height in px
-                        int contentH = view.getContentHeight();
-                        view.measure(
-                                View.MeasureSpec.makeMeasureSpec(fLogicalWidth, View.MeasureSpec.EXACTLY),
-                                View.MeasureSpec.makeMeasureSpec(contentH + 400, View.MeasureSpec.EXACTLY)
-                        );
-                        int height = Math.max(view.getMeasuredHeight(), contentH) + 400;
-                        if (height < 600) height = 2000; // sanity minimum
+                        // getContentHeight() = WebKit's exact document height (not the 10000px layout height)
+                        // Adding 200px for the cutter clearance space only
+                        int height = view.getContentHeight() + 200;
+                        if (height < 600) height = 1500; // sanity minimum
 
                         android.graphics.Bitmap logicalBitmap =
                                 android.graphics.Bitmap.createBitmap(
