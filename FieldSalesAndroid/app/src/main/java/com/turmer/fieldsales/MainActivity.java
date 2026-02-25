@@ -297,10 +297,12 @@ public class MainActivity extends AppCompatActivity {
         int fLogicalWidth = logicalWidth;
         int fPrintWidth   = printWidth;
 
-        // Attach off-screen so Android renders it
-        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(fLogicalWidth,
-                FrameLayout.LayoutParams.WRAP_CONTENT);
-        lp.leftMargin = -10000;
+        // ── CRITICAL: Use a large fixed height (not WRAP_CONTENT) ──
+        // WRAP_CONTENT causes the offscreen WebView to stop rendering content
+        // beyond the screen height, cutting off totals, QR codes, and disclaimers.
+        // A 10000px fixed height tells Android to render the FULL document.
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(fLogicalWidth, 10000);
+        lp.leftMargin = -20000; // Push far off-screen so it's never visible
         offscreenWV.setLayoutParams(lp);
         ((ViewGroup) getWindow().getDecorView()).addView(offscreenWV);
 
@@ -309,22 +311,15 @@ public class MainActivity extends AppCompatActivity {
             public void onPageFinished(WebView view, String url) {
                 view.postDelayed(() -> {
                     try {
-                        // ── HEIGHT CALCULATION — critical for complete print ──
-                        // getMeasuredHeight() only measures the Android View layout,
-                        // which for offscreen WebViews is often LESS than the actual
-                        // HTML content height (causing totals/QR/disclaimer to be cut off).
-                        //
-                        // getContentHeight() returns the true HTML document height in
-                        // CSS pixels as reported by the WebKit engine — always accurate.
-                        //
-                        // We take the maximum of both and add a 400px safety buffer.
+                        // ── HEIGHT: use getContentHeight() — WebKit's true document height ──
+                        // WRAP_CONTENT was cutting off content; now WebView is 10000px tall
+                        // getContentHeight() returns the exact rendered content height in px
+                        int contentH = view.getContentHeight();
                         view.measure(
                                 View.MeasureSpec.makeMeasureSpec(fLogicalWidth, View.MeasureSpec.EXACTLY),
-                                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+                                View.MeasureSpec.makeMeasureSpec(contentH + 400, View.MeasureSpec.EXACTLY)
                         );
-                        int measuredH = view.getMeasuredHeight();
-                        int contentH  = view.getContentHeight(); // true WebKit HTML height (CSS px)
-                        int height    = Math.max(measuredH, contentH) + 400; // 400px = safe buffer for footer content
+                        int height = Math.max(view.getMeasuredHeight(), contentH) + 400;
                         if (height < 600) height = 2000; // sanity minimum
 
                         android.graphics.Bitmap logicalBitmap =
