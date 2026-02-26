@@ -265,8 +265,8 @@ public class MainActivity extends AppCompatActivity {
         String odooUrl = prefs.getString(KEY_ODOO_URL, "");
         int widthMm = prefs.getInt(KEY_PRINTER_WIDTH, 80);
 
-        // 80mm (3-inch) → 576px  |  104mm (4-inch) → 768px
-        int logicalWidth = (widthMm >= 100) ? 768 : 576;
+        // 80mm (3-inch) → 576px  |  104mm (4-inch) → 832px
+        int logicalWidth = (widthMm >= 100) ? 832 : 576;
         int printWidth   = logicalWidth;
 
         // Build @page CSS for the correct paper width
@@ -275,7 +275,7 @@ public class MainActivity extends AppCompatActivity {
         // Inject space-saving and width-fix CSS
         String style = "<style>" +
                 "@page { size: " + pageSize + " auto; margin: 0; }" +
-                "body { margin: 0 !important; padding: 0 2px !important; width: 100% !important;" +
+                "body { margin: 0 !important; padding: 0 0.5px !important; width: 100% !important;" +
                 "       box-sizing: border-box !important; font-size: 11px !important;" +
                 "       line-height: 1.1 !important; font-weight: 600 !important;" +
                 "       background: #FFF !important; color: #000 !important; font-family: sans-serif; }" +
