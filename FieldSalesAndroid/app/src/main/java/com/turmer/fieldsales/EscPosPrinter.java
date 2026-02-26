@@ -155,31 +155,52 @@ public class EscPosPrinter {
             outputStream.write(new byte[]{0x1B, 0x61, 0x00});
             outputStream.flush();
 
-            // Encode bitmap to ESC/POS raster format
-            byte[] bitmapData = encodeBitmapToRaster(bitmap);
+            // ESC 3 0 — Set line spacing to 0 for seamless band printing
+            outputStream.write(new byte[]{0x1B, 0x33, 0x00});
+            outputStream.flush();
 
-            // ── CHUNKED WRITE — critical for BT printers with small buffers ──
-            // Sending the full bitmap at once (~50–200 KB) overflows the printer's
-            // internal buffer (typically 4–8 KB), causing it to stall mid-print.
-            // Writing in 512-byte chunks with a short flush delay prevents this.
-            final int CHUNK_SIZE = 512;
-            int offset = 0;
-            while (offset < bitmapData.length) {
-                int end = Math.min(offset + CHUNK_SIZE, bitmapData.length);
-                outputStream.write(bitmapData, offset, end - offset);
-                outputStream.flush();
-                offset = end;
-                try { Thread.sleep(5); } catch (InterruptedException ignored) {}
+            int imgWidth = bitmap.getWidth();
+            int imgHeight = bitmap.getHeight();
+            
+            // ── BANDED PRINTING — critical for Bixolon and mobile BT printers ──
+            // Mobile printers have very small image buffers. A single GS v 0 command
+            // with a height > 255 or > 512 often causes the printer to hang (blue light flashes
+            // but nothing prints). We slice the image into 200-pixel tall bands.
+            final int BAND_HEIGHT = 200; 
+
+            for (int y = 0; y < imgHeight; y += BAND_HEIGHT) {
+                int currentBandHeight = Math.min(BAND_HEIGHT, imgHeight - y);
+                Bitmap band = Bitmap.createBitmap(bitmap, 0, y, imgWidth, currentBandHeight);
+                
+                // Encode this band to ESC/POS raster format
+                byte[] bandData = encodeBitmapToRaster(band);
+                band.recycle();
+
+                // ── CHUNKED WRITE — prevent Bluetooth transport buffer overflow ──
+                final int CHUNK_SIZE = 512;
+                int offset = 0;
+                while (offset < bandData.length) {
+                    int end = Math.min(offset + CHUNK_SIZE, bandData.length);
+                    outputStream.write(bandData, offset, end - offset);
+                    outputStream.flush();
+                    offset = end;
+                    try { Thread.sleep(5); } catch (InterruptedException ignored) {}
+                }
             }
 
+            // ESC 2 — Reset line spacing to default
+            outputStream.write(new byte[]{0x1B, 0x32});
+            outputStream.flush();
+
             // Feed 3 lines then full cut — ~3 character lines of clearance for cutter
+            // (Note: portable printers will simply ignore the cut command)
             outputStream.write(new byte[]{
                     0x0A, 0x0A, 0x0A,          // 3× line feed
                     0x1D, 0x56, 0x42, 0x00      // Full cut
             });
             outputStream.flush();
 
-            Log.d(TAG, "Print job sent successfully (" + bitmapData.length + " bytes)");
+            Log.d(TAG, "Print job sent successfully. Total height: " + imgHeight);
 
         } catch (IOException e) {
             Log.e(TAG, "Failed to send print data", e);
