@@ -275,7 +275,7 @@ public class MainActivity extends AppCompatActivity {
         // Inject space-saving and width-fix CSS
         String style = "<style>" +
                 "@page { size: " + pageSize + " auto; margin: 0; }" +
-                "body { margin: 0 !important; padding: 0 2mm !important; width: 100% !important;" +
+                "body { margin: 0 !important; padding: 0 2px !important; width: 100% !important;" +
                 "       box-sizing: border-box !important; font-size: 11px !important;" +
                 "       line-height: 1.1 !important; font-weight: 600 !important;" +
                 "       background: #FFF !important; color: #000 !important; font-family: sans-serif; }" +

@@ -151,8 +151,8 @@ public class EscPosPrinter {
             outputStream.write(new byte[]{0x1B, 0x40});
             outputStream.flush();
 
-            // ESC a 0 — Left align
-            outputStream.write(new byte[]{0x1B, 0x61, 0x00});
+            // ESC a 1 — Center align
+            outputStream.write(new byte[]{0x1B, 0x61, 0x01});
             outputStream.flush();
 
             // ESC 3 0 — Set line spacing to 0 for seamless band printing
