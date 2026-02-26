@@ -48,6 +48,8 @@ public class LoginActivity extends Activity {
 
     private static final String PREFS_NAME   = "FieldSalesPrefs";
     private static final String KEY_ODOO_URL = "odoo_url";
+    private static final String KEY_USERNAME = "saved_username";
+    private static final String KEY_PASSWORD = "saved_password";
 
     /** The exact URL typed by the user — loaded by MainActivity after login. */
     private String rawAppUrl = "";
@@ -76,8 +78,11 @@ public class LoginActivity extends Activity {
                 WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
         getWindow().setStatusBarColor(Color.TRANSPARENT);
-        getWindow().getDecorView().setSystemUiVisibility(
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
+        int flags = View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+        }
+        getWindow().getDecorView().setSystemUiVisibility(flags);
 
         setContentView(buildUI());
 
@@ -97,6 +102,12 @@ public class LoginActivity extends Activity {
             // Pre-populate if user ever taps Change
             etUrl.setText(savedUrl);
         }
+
+        // Load saved credentials
+        String savedUser = prefs.getString(KEY_USERNAME, "");
+        String savedPass = prefs.getString(KEY_PASSWORD, "");
+        if (!savedUser.isEmpty()) etUsername.setText(savedUser);
+        if (!savedPass.isEmpty()) etPassword.setText(savedPass);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -107,8 +118,7 @@ public class LoginActivity extends Activity {
         FrameLayout root = new FrameLayout(this);
         root.setLayoutParams(new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        root.setBackground(new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                new int[]{0xFF0F0C29, 0xFF302B63, 0xFF24243E}));
+        root.setBackgroundColor(0xFFF7FAFC); // Clean light gray-blue
 
         ScrollView scroll = new ScrollView(this);
         scroll.setLayoutParams(fill(FrameLayout.LayoutParams.class));
@@ -140,8 +150,8 @@ public class LoginActivity extends Activity {
         logoCircle.addView(logoImg);
         col.addView(logoCircle);
 
-        col.addView(centeredText("Field Sales",       30, Color.WHITE,  true,  dp(6)));
-        col.addView(centeredText("Sign in to continue", 14, 0xAAFFFFFF, false, dp(40)));
+        col.addView(centeredText("Field Sales",       30, 0xFF2D3748,  true,  dp(6)));
+        col.addView(centeredText("Sign in to your account", 15, 0xFF718096, false, dp(40)));
 
         // ── Card ──
         LinearLayout card = new LinearLayout(this);
@@ -153,10 +163,12 @@ public class LoginActivity extends Activity {
         card.setLayoutParams(cardLp);
         GradientDrawable cardBg = new GradientDrawable();
         cardBg.setShape(GradientDrawable.RECTANGLE);
-        cardBg.setCornerRadius(dp(20));
-        cardBg.setColor(0x33FFFFFF);
-        cardBg.setStroke(1, 0x44FFFFFF);
+        cardBg.setCornerRadius(dp(24));
+        cardBg.setColor(Color.WHITE);
         card.setBackground(cardBg);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            card.setElevation(dp(16));
+        }
         col.addView(card);
 
         // ── URL compact chip row (shown after URL is saved) ──
@@ -215,7 +227,7 @@ public class LoginActivity extends Activity {
 
         // Footer
         col.addView(centeredText("Powered by Truets Tech Solutions Pvt.Ltd",
-                11, 0x66FFFFFF, false, 0));
+                12, 0xFFA0AEC0, false, 0));
 
         // Loading overlay
         loadingOverlay = new View(this);
@@ -243,7 +255,7 @@ public class LoginActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         tvUrlChip = new TextView(this);
-        tvUrlChip.setTextColor(0xAAFFFFFF);
+        tvUrlChip.setTextColor(0xFF4A5568);
         tvUrlChip.setTextSize(12);
         tvUrlChip.setEllipsize(android.text.TextUtils.TruncateAt.MIDDLE);
         tvUrlChip.setSingleLine(true);
@@ -254,7 +266,7 @@ public class LoginActivity extends Activity {
         TextView changeBtn = new TextView(this);
         changeBtn.setText("✏ Change");
         changeBtn.setTextSize(11);
-        changeBtn.setTextColor(0xFF667EEA);
+        changeBtn.setTextColor(0xFF3182CE);
         changeBtn.setPadding(dp(8), dp(4), 0, dp(4));
         changeBtn.setOnClickListener(v -> switchToUrlEditMode());
         row.addView(changeBtn);
@@ -494,9 +506,12 @@ public class LoginActivity extends Activity {
                 // ── SUCCESS ──────────────────────────────────────────────────
                 String setCookie = conn.getHeaderField("Set-Cookie");
 
-                // Save the exact URL the user typed — this is what loads in the app
+                // Save credentials for auto-login
                 getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
-                        .putString(KEY_ODOO_URL, rawAppUrl).apply();
+                        .putString(KEY_ODOO_URL, rawAppUrl)
+                        .putString(KEY_USERNAME, username)
+                        .putString(KEY_PASSWORD, password)
+                        .apply();
 
                 showLoading(false);
                 runOnUiThread(() -> {
@@ -546,8 +561,9 @@ public class LoginActivity extends Activity {
     private TextView label(String text) {
         TextView tv = new TextView(this);
         tv.setText(text);
-        tv.setTextColor(0xCCFFFFFF);
-        tv.setTextSize(12);
+        tv.setTextColor(0xFF4A5568);
+        tv.setTextSize(13);
+        tv.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         lp.bottomMargin = dp(6);
@@ -558,8 +574,8 @@ public class LoginActivity extends Activity {
     private EditText field(String hint, int inputType) {
         EditText et = new EditText(this);
         et.setHint(hint);
-        et.setHintTextColor(0x66FFFFFF);
-        et.setTextColor(Color.WHITE);
+        et.setHintTextColor(0xFFA0AEC0);
+        et.setTextColor(0xFF2D3748);
         et.setTextSize(15);
         et.setInputType(inputType);
         et.setPadding(dp(16), dp(14), dp(48), dp(14));
@@ -569,9 +585,13 @@ public class LoginActivity extends Activity {
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.RECTANGLE);
         bg.setCornerRadius(dp(12));
-        bg.setColor(0x22FFFFFF);
-        bg.setStroke(1, 0x44FFFFFF);
+        bg.setColor(0xFFFFFFFF);
+        bg.setStroke(dp(2), 0xFFE2E8F0);
         et.setBackground(bg);
+        
+        et.setOnFocusChangeListener((v, hasFocus) -> {
+            bg.setStroke(dp(2), hasFocus ? 0xFF667EEA : 0xFFE2E8F0);
+        });
         return et;
     }
 

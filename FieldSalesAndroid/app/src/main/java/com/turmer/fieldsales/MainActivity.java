@@ -81,6 +81,8 @@ public class MainActivity extends AppCompatActivity {
         webLayer.addView(progressBar, pbParams);
 
         webView = new WebView(this);
+        // Disable Android's elastic bounce scrolling
+        webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
         webLayer.addView(webView,
                 new RelativeLayout.LayoutParams(
                         RelativeLayout.LayoutParams.MATCH_PARENT,
