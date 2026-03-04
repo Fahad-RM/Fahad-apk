@@ -177,14 +177,14 @@ public class EscPosPrinter {
                 band.recycle();
 
                 // ── CHUNKED WRITE — prevent Bluetooth transport buffer overflow ──
-                final int CHUNK_SIZE = 1024;
+                final int CHUNK_SIZE = 512;
                 int offset = 0;
                 while (offset < bandData.length) {
                     int end = Math.min(offset + CHUNK_SIZE, bandData.length);
                     outputStream.write(bandData, offset, end - offset);
                     outputStream.flush();
                     offset = end;
-                    try { Thread.sleep(3); } catch (InterruptedException ignored) {}
+                    try { Thread.sleep(8); } catch (InterruptedException ignored) {}
                 }
             }
 
@@ -202,9 +202,9 @@ public class EscPosPrinter {
 
             // ── CRITICAL: Wait for Bluetooth buffer to clear ──
             // Even though we call flush(), the Android Bluetooth socket can drop
-            // unsent bytes if it is closed immediately. Giving it 1.5s ensures the
+            // unsent bytes if it is closed immediately. Giving it 2.5s ensures the
             // final QR code lines and paper feed actually make it over the air.
-            try { Thread.sleep(1500); } catch (InterruptedException ignored) {}
+            try { Thread.sleep(2500); } catch (InterruptedException ignored) {}
 
             Log.d(TAG, "Print job sent successfully. Total height: " + imgHeight);
 
