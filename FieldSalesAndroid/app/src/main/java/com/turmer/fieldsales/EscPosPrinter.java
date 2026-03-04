@@ -177,14 +177,14 @@ public class EscPosPrinter {
                 band.recycle();
 
                 // ── CHUNKED WRITE — prevent Bluetooth transport buffer overflow ──
-                final int CHUNK_SIZE = 256;
+                final int CHUNK_SIZE = 1024;
                 int offset = 0;
                 while (offset < bandData.length) {
                     int end = Math.min(offset + CHUNK_SIZE, bandData.length);
                     outputStream.write(bandData, offset, end - offset);
                     outputStream.flush();
                     offset = end;
-                    try { Thread.sleep(20); } catch (InterruptedException ignored) {}
+                    try { Thread.sleep(3); } catch (InterruptedException ignored) {}
                 }
             }
 
