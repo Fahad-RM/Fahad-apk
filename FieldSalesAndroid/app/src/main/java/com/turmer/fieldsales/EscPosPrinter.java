@@ -184,7 +184,7 @@ public class EscPosPrinter {
                     outputStream.write(bandData, offset, end - offset);
                     outputStream.flush();
                     offset = end;
-                    try { Thread.sleep(8); } catch (InterruptedException ignored) {}
+                    try { Thread.sleep(10); } catch (InterruptedException ignored) {}
                 }
             }
 
