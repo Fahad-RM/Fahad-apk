@@ -211,6 +211,85 @@ public class MainActivity extends AppCompatActivity {
 
         }, "AndroidPrint");
 
+        webView.addJavascriptInterface(new Object() {
+            @android.webkit.JavascriptInterface
+            public void downloadFile(String path, String filename) {
+                runOnUiThread(() -> {
+                    try {
+                        String base = webView.getUrl();
+                        if (base == null) base = prefs.getString(KEY_ODOO_URL, "");
+                        String url = android.net.Uri.parse(base).buildUpon().encodedPath(path).build().toString();
+
+                        android.app.DownloadManager.Request request = new android.app.DownloadManager.Request(android.net.Uri.parse(url));
+                        request.setTitle(filename);
+                        request.allowScanningByMediaScanner();
+                        request.setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+                        request.setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, filename);
+
+                        String cookies = android.webkit.CookieManager.getInstance().getCookie(url);
+                        if (cookies != null) {
+                            request.addRequestHeader("Cookie", cookies);
+                        }
+
+                        android.app.DownloadManager dm = (android.app.DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
+                        dm.enqueue(request);
+                        Toast.makeText(MainActivity.this, "Downloading " + filename + "...", Toast.LENGTH_SHORT).show();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        Toast.makeText(MainActivity.this, "Download failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
+                });
+            }
+
+            @android.webkit.JavascriptInterface
+            public void shareFile(String path, String filename) {
+                runOnUiThread(() -> {
+                    Toast.makeText(MainActivity.this, "Preparing PDF for share...", Toast.LENGTH_SHORT).show();
+                    new Thread(() -> {
+                        try {
+                            String base = webView.getUrl();
+                            if (base == null) base = prefs.getString(KEY_ODOO_URL, "");
+                            String urlStr = android.net.Uri.parse(base).buildUpon().encodedPath(path).build().toString();
+
+                            java.net.URL url = new java.net.URL(urlStr);
+                            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+                            String cookies = android.webkit.CookieManager.getInstance().getCookie(urlStr);
+                            if (cookies != null) {
+                                conn.setRequestProperty("Cookie", cookies);
+                            }
+                            conn.connect();
+
+                            java.io.File cacheDir = new java.io.File(getCacheDir(), "shared_pdfs");
+                            if (!cacheDir.exists()) cacheDir.mkdirs();
+                            java.io.File pdfFile = new java.io.File(cacheDir, filename);
+
+                            java.io.InputStream in = conn.getInputStream();
+                            java.io.FileOutputStream out = new java.io.FileOutputStream(pdfFile);
+                            byte[] buffer = new byte[2048];
+                            int len;
+                            while ((len = in.read(buffer)) > 0) {
+                                out.write(buffer, 0, len);
+                            }
+                            out.close();
+                            in.close();
+
+                            runOnUiThread(() -> {
+                                android.net.Uri fileUri = androidx.core.content.FileProvider.getUriForFile(MainActivity.this, getPackageName() + ".fileprovider", pdfFile);
+                                android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_SEND);
+                                intent.setType("application/pdf");
+                                intent.putExtra(android.content.Intent.EXTRA_STREAM, fileUri);
+                                intent.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                                startActivity(android.content.Intent.createChooser(intent, "Share PDF"));
+                            });
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                            runOnUiThread(() -> Toast.makeText(MainActivity.this, "Share failed: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+                        }
+                    }).start();
+                });
+            }
+        }, "AndroidSettings");
+
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageFinished(WebView view, String url) {
