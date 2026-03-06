@@ -245,11 +245,13 @@ public class MainActivity extends AppCompatActivity {
             public void shareFile(String path, String filename) {
                 runOnUiThread(() -> {
                     Toast.makeText(MainActivity.this, "Preparing PDF for share...", Toast.LENGTH_SHORT).show();
+                    String baseStr = webView.getUrl();
+                    if (baseStr == null) baseStr = prefs.getString(KEY_ODOO_URL, "");
+                    final String finalBase = baseStr;
+
                     new Thread(() -> {
                         try {
-                            String base = webView.getUrl();
-                            if (base == null) base = prefs.getString(KEY_ODOO_URL, "");
-                            String urlStr = android.net.Uri.parse(base).buildUpon().encodedPath(path).build().toString();
+                            String urlStr = android.net.Uri.parse(finalBase).buildUpon().encodedPath(path).build().toString();
 
                             java.net.URL url = new java.net.URL(urlStr);
                             java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
