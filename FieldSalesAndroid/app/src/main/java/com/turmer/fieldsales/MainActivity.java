@@ -248,14 +248,13 @@ public class MainActivity extends AppCompatActivity {
                     String baseStr = webView.getUrl();
                     if (baseStr == null) baseStr = prefs.getString(KEY_ODOO_URL, "");
                     final String finalBase = baseStr;
+                    final String urlStr = android.net.Uri.parse(finalBase).buildUpon().encodedPath(path).build().toString();
+                    final String cookies = android.webkit.CookieManager.getInstance().getCookie(urlStr);
 
                     new Thread(() -> {
                         try {
-                            String urlStr = android.net.Uri.parse(finalBase).buildUpon().encodedPath(path).build().toString();
-
                             java.net.URL url = new java.net.URL(urlStr);
                             java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
-                            String cookies = android.webkit.CookieManager.getInstance().getCookie(urlStr);
                             if (cookies != null) {
                                 conn.setRequestProperty("Cookie", cookies);
                             }
