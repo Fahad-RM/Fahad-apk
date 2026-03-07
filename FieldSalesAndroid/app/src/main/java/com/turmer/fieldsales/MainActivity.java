@@ -507,7 +507,7 @@ public class MainActivity extends AppCompatActivity {
                             offscreenWV.destroy();
                         });
                     }
-                }, 2500);
+                }, 4000); // Increased wait time to ensure QR codes finish loading
             }
         });
     }

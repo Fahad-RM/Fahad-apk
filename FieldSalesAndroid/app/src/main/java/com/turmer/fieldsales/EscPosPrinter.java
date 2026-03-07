@@ -151,8 +151,8 @@ public class EscPosPrinter {
             outputStream.write(new byte[]{0x1B, 0x40});
             outputStream.flush();
 
-            // ESC a 0 — Left align (fixes clipping on 4-inch printers with 3-inch paper)
-            outputStream.write(new byte[]{0x1B, 0x61, 0x00});
+            // ESC a 1 — Center align (fixes centering on 4-inch printers with 3-inch prints)
+            outputStream.write(new byte[]{0x1B, 0x61, 0x01});
             outputStream.flush();
 
             // ESC 3 0 — Set line spacing to 0 for seamless band printing
@@ -184,7 +184,7 @@ public class EscPosPrinter {
                     outputStream.write(bandData, offset, end - offset);
                     outputStream.flush();
                     offset = end;
-                    try { Thread.sleep(10); } catch (InterruptedException ignored) {}
+                    try { Thread.sleep(25); } catch (InterruptedException ignored) {} // Decreased speed for reliability
                 }
             }
 
