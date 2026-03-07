@@ -376,8 +376,8 @@ public class MainActivity extends AppCompatActivity {
         String odooUrl = prefs.getString(KEY_ODOO_URL, "");
         int widthMm = prefs.getInt(KEY_PRINTER_WIDTH, 80);
 
-        // 58mm (2-inch) → 384px | 80mm (3-inch) → 512px  |  104mm (4-inch) → 832px
-        int logicalWidth = 512;
+        // 58mm (2-inch) → 384px | 80mm (3-inch) → 576px  |  104mm (4-inch) → 832px
+        int logicalWidth = 576;
         if (widthMm >= 100) logicalWidth = 832;
         else if (widthMm <= 58) logicalWidth = 384;
         
