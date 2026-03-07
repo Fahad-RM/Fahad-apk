@@ -192,10 +192,9 @@ public class EscPosPrinter {
             outputStream.write(new byte[]{0x1B, 0x32});
             outputStream.flush();
 
-            // Feed 6 lines then full cut — ensures enough clearance for tear bar on 4-inch mobile printers
-            // (Note: portable printers will simply ignore the cut command)
+            // Feed 2 lines then full cut
             outputStream.write(new byte[]{
-                    0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A,  // 6× line feed
+                    0x0A, 0x0A,                          // 2x line feed
                     0x1D, 0x56, 0x42, 0x00               // Full cut
             });
             outputStream.flush();

@@ -376,8 +376,11 @@ public class MainActivity extends AppCompatActivity {
         String odooUrl = prefs.getString(KEY_ODOO_URL, "");
         int widthMm = prefs.getInt(KEY_PRINTER_WIDTH, 80);
 
-        // 80mm (3-inch) → 576px  |  104mm (4-inch) → 832px
-        int logicalWidth = (widthMm >= 100) ? 832 : 576;
+        // 58mm (2-inch) → 384px | 80mm (3-inch) → 512px  |  104mm (4-inch) → 832px
+        int logicalWidth = 512;
+        if (widthMm >= 100) logicalWidth = 832;
+        else if (widthMm <= 58) logicalWidth = 384;
+        
         int printWidth   = logicalWidth;
 
         // Build @page CSS for the correct paper width
@@ -452,13 +455,13 @@ public class MainActivity extends AppCompatActivity {
                                 }
                             }
                             if (hasContent) {
-                                // Add 200px buffer for the cutter below the last black pixel
-                                actualContentHeight = Math.min(height, y + 200);
+                                // Add 40px buffer (~2 lines space) to prevent cutter blocking
+                                actualContentHeight = Math.min(height, y + 40);
                                 break;
                             }
                         }
 
-                        if (actualContentHeight < 600) actualContentHeight = 1500; // sanity minimum
+                        if (actualContentHeight < 600) actualContentHeight = 600; // sanity minimum
 
                         // 4. Crop the bitmap to the actual content height
                         android.graphics.Bitmap croppedBitmap = android.graphics.Bitmap.createBitmap(
@@ -559,19 +562,21 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void showPaperWidthDialog() {
-        String[] sizes = {"🗒  3-inch (80mm) — Standard Thermal", "📄  4-inch (104mm) — Wide Thermal"};
+        String[] sizes = {"🗒  2-inch (58mm)", "🗒  3-inch (80mm) — Standard", "📄  4-inch (104mm) — Wide"};
         int currentWidth = prefs.getInt(KEY_PRINTER_WIDTH, 80);
-        int checkedItem = (currentWidth == 104) ? 1 : 0;
+        int checkedItem = 1;
+        if (currentWidth >= 104) checkedItem = 2;
+        else if (currentWidth <= 58) checkedItem = 0;
 
         new AlertDialog.Builder(this)
                 .setTitle("Select Paper Width")
                 .setSingleChoiceItems(sizes, checkedItem, (dialog, which) -> {
-                    int newMm = (which == 1) ? 104 : 80;
+                    int newMm = 80;
+                    if (which == 2) newMm = 104;
+                    else if (which == 0) newMm = 58;
                     prefs.edit().putInt(KEY_PRINTER_WIDTH, newMm).apply();
                     dialog.dismiss();
-                    Toast.makeText(this,
-                            "Paper width set to " + newMm + "mm",
-                            Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "Paper width set to " + newMm + "mm", Toast.LENGTH_SHORT).show();
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
